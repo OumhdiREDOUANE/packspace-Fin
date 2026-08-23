@@ -1,0 +1,58 @@
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: packspace-mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_DATABASE: packspace_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_USER: packspaceappuser
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./packspace_db.sql:/docker-entrypoint-initdb.d/packspace_db.sql
+
+  backend:
+    build:
+      context: ./packSpaceApi
+      dockerfile: Dockerfile
+
+    container_name: packspace-backend
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: packspace_db
+      DB_USERNAME: packspaceappuser
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+
+    depends_on:
+      - mysql
+
+  frontend:
+    build:
+      context: ./packSpaceui
+      dockerfile: Dockerfile
+
+    container_name: packspace-frontend
+
+    ports:
+      - "3000:3000"
+
+    
+
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

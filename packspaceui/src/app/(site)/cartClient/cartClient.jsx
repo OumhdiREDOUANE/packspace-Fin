@@ -1,0 +1,385 @@
+"use client";
+import { useEffect, useState } from "react";
+import { Trash2, Edit, Copy, Save, Download } from "lucide-react";
+import Cookies from "js-cookie";
+import useSWR, { mutate } from "swr";
+import { useRouter } from "next/navigation";
+import { useAuth } from "src/app/components/AuthProvider";
+import toast from 'react-hot-toast';
+const fetcher = (url, token) =>
+  fetch(url, {
+    headers: token ? { "Authorization": `Bearer ${token}` } : {},
+  }).then(res => res.json());
+
+export default function CartClient({ sessionId, orders, token }) {
+  const { isLoggedIn } = useAuth();
+  const [showDetails, setShowDetails] = useState({});
+const [loadingDelete, setLoadingDelete] = useState({});
+const [loadingSave, setLoadingSave] = useState({});
+const [loadingValidate, setLoadingValidate] = useState(false);
+const [loadingSuivre, setLoadingSuivre] = useState(false);
+const [loading, setLoading] = useState(true);
+
+  const [dataOfOrders, setDataOfOrders] = useState(orders || []);
+    const [loadingItems, setLoadingItems] = useState({});
+  const router = useRouter();
+  const isPanierEmpty = !dataOfOrders?.data || dataOfOrders.data.length === 0;
+const isDisabledActions = isLoggedIn && isPanierEmpty;
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+  const url = sessionId
+    ? token
+      ? `${API_BASE_URL}/api/cart/${sessionId}`
+      : `${API_BASE_URL}/api/cart/notLogin/${sessionId}`
+    : null;
+
+  const { data } = useSWR(url, (url) => fetcher(url, token), {
+    fallbackData: orders,
+    refreshInterval: 5000,
+  });
+
+  useEffect(() => {
+    if (data) {
+      setDataOfOrders(data);
+     
+      
+      setLoading(false);
+    }
+  }, [data]);
+
+  const handleDelete = async (id_orderProduct) => {
+    try {
+      setLoadingDelete(prev => ({ ...prev, [id_orderProduct]: true }));
+      const sessionId = Cookies.get("session_id");
+      const response = await fetch(`${API_BASE_URL}/api/cart/notLogin/${id_orderProduct}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", "X-Session-Id": sessionId },
+      });
+      if (!response.ok) throw new Error("Erreur suppression");
+      setDataOfOrders(prev => ({
+        ...prev,
+        data: prev.data.filter(order => order.id_orderProduct !== id_orderProduct),
+      }));
+      mutate(url);
+    } catch (error) {
+           throw new Error("Erreur lors du chargement des commandes");
+    }finally {
+    setLoadingDelete(prev => ({ ...prev, [id_orderProduct]: false }));
+  }
+  };
+
+  const handleEdit = (order) => {
+    sessionStorage.setItem("orderData", JSON.stringify(order));
+    router.push(`/product/${order.product.name_product}/${order.uuid}`);
+  };
+const toastInfo = (message) => {
+  toast(message, {
+    icon: 'ℹ️',
+    duration: 3000,
+    style: {
+      background: '#3b82f6',
+      color: '#fff',
+    },
+  });
+};
+  const handleSave = async (id_orderProduct) => {
+    if (!isLoggedIn) {
+      toastInfo("Veuillez vous connecter pour sauvegarder");
+      router.push("/login");
+      return;
+    }
+    try {
+       setLoadingSave(prev => ({ ...prev, [id_orderProduct]: true }));
+      const sessionId = Cookies.get("session_id");
+      const response = await fetch(`${API_BASE_URL}/api/save/${id_orderProduct}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Id": sessionId,
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      if (!response.ok) throw new Error("Erreur sauvegarde");
+      mutate(url);
+       toast.success("Produit sauvegardé avec succès !")
+    } catch (error) {
+     
+           throw new Error("Erreur lors du chargement des commandes");
+    }finally {
+    setLoadingSave(prev => ({ ...prev, [id_orderProduct]: false }));
+  }
+  };
+  const handleSubmit = async (id_orderProduct) => {
+     try {
+      setLoadingItems(prev => ({ ...prev, [id_orderProduct]: true }));
+      
+      const sourceOrders = dataOfOrders?.data || [];
+const order = sourceOrders.find(o => o.id_orderProduct === id_orderProduct);
+if (!order) return; 
+      const payload = {};
+      order.product.proprieter.forEach((item, index) => {
+        payload[`selected_option_${index + 1}`] = item.options.id_ProductOption; 
+      });
+      payload.prix_orderProduct = order.prix_total
+    
+      const sessionId = Cookies.get("session_id");
+      const response = await fetch(`${API_BASE_URL}/api/product`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json",
+          "X-Session-Id": sessionId,
+         },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const text = await response.text();
+        
+        setLoadingItems(prev => ({ ...prev, [id_orderProduct]: false }));
+        return;
+      }
+  
+      const data = await response.json();
+     
+     
+
+        
+      
+      if (data.success === true) {
+        
+        mutate(`${API_BASE_URL}/api/cart/notLogin/${sessionId}`);
+
+      setLoadingItems(prev => ({ ...prev, [id_orderProduct]: false })); // stop loading
+    } 
+  }catch (error) {
+      
+      setLoadingItems(prev => ({ ...prev, [id_orderProduct]: false })); // stop loading
+    }
+  };
+  
+const handleSuivre =  () => {
+    if (!isLoggedIn) {
+     toastInfo("Veuillez vous connecter pour suivre son achat");
+      router.push("/login");
+      return;
+    }else{
+      setLoadingSuivre(true);
+  router.push("/mes_achat");
+        
+    }
+  }
+  const handleValidation = async (prix_panier) => {
+    if (!isLoggedIn) {
+      toastInfo("Veuillez vous connecter pour valider le panier");
+ 
+      router.push("/login");
+      return;
+    
+    }
+    try {
+      setLoadingValidate(true);
+      const sessionId = Cookies.get("session_id");
+      const response = await fetch(`${API_BASE_URL}/api/cart/valider-panier`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Session-Id": sessionId,
+          "Authorization": `Bearer ${token}`,
+        },
+        body: JSON.stringify({ prix: prix_panier }),
+      });
+      if (!response.ok) throw new Error("Erreur validation panier");
+       mutate(url);
+      toast.success("Panier validé avec succès !")
+    } catch (error) {
+           throw new Error("Erreur lors du chargement des commandes");
+    }finally {
+    setLoadingValidate(false);
+  }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-[#006294] border-b-4"></div>
+      </div>
+    );
+  }
+
+
+
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <h1 className="text-2xl font-bold mb-6">Votre panier</h1>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Produits */}
+        <div className="lg:col-span-2 bg-white rounded-2xl shadow p-4 space-y-6">
+  {
+    (!dataOfOrders?.data?.length) ? (
+      <div className="text-center py-20 text-gray-500">
+        <p>Aucun produit dans votre panier.</p>
+      </div>
+    ) : (
+      dataOfOrders.data.map(order => {
+        const product = order.product;
+        const isLoading = loadingItems[order.id_orderProduct] || false;
+
+        return (
+          
+          <div key={order.id_orderProduct} className="flex flex-col md:flex-row gap-4 border-b pb-4">
+            <div className="w-28 h-28 flex-shrink-0">
+              <img
+                src={product.image?.url_image}
+                alt={product.name_product}
+                className="w-full h-full rounded-lg object-cover"
+              />
+            </div>
+
+            <div className="flex-1">
+              <div className="flex justify-between items-start">
+                <h2 className="text-lg font-semibold">{product.name_product}</h2>
+                <button
+  disabled={loadingDelete[order.id_orderProduct]}
+  onClick={() => handleDelete(order.id_orderProduct)}
+  className="text-[#006294] hover:text-[#C09200]"
+>
+  {loadingDelete[order.id_orderProduct] ? (
+    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-[#006294] border-b-2" />
+  ) : (
+    <Trash2 size={20} />
+  )}
+</button>
+
+              </div>
+
+              <p className="text-sm text-gray-500">
+                Quantité: {order.product.proprieter.find(p => p.name_proprieter === "Quantité")?.options.name_option ?? "-"}
+              </p>
+
+              <div className="mt-2">
+                <p className="font-medium text-gray-800">{order.prix_total} Dhs HT</p>
+              </div>
+
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => handleEdit(order)} className="p-2 border rounded-lg hover:bg-gray-100">
+                  <Edit size={18} />
+                </button>
+
+                <button
+                  onClick={() => handleSubmit(order.id_orderProduct)}
+                  className="p-2 border rounded-lg hover:bg-gray-100"
+                >
+                  {isLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-[#006294] border-b-2"></div>
+                  ) : (
+                    <Copy size={18} />
+                  )}
+                </button>
+
+                <button
+  disabled={loadingSave[order.id_orderProduct]}
+  onClick={() => handleSave(order.id_orderProduct)}
+  className="p-2 border rounded-lg hover:bg-gray-100"
+>
+  {loadingSave[order.id_orderProduct] ? (
+    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-[#006294] border-b-2" />
+  ) : (
+    <Save size={18} />
+  )}
+</button>
+
+              </div>
+
+              <div className="mt-4">
+                <button
+                  className="text-sm text-gray-600 hover:underline"
+                  onClick={() =>
+                    setShowDetails(prev => ({
+                      ...prev,
+                      [order.id_orderProduct]: !prev[order.id_orderProduct],
+                    }))
+                  }
+                >
+                  {showDetails[order.id_orderProduct] ? "Masquer les détails ▲" : "Détails ▼"}
+                </button>
+
+                {showDetails[order.id_orderProduct] && (
+                  <ul className="mt-2 text-sm text-gray-600 space-y-1 pl-4 list-disc">
+                    {product.proprieter.map(p => (
+                      <li key={p.id_proprieter}>
+                        <span className="font-medium">{p.name_proprieter}:</span> {p.options.name_option}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })
+    )
+  }
+</div>
+
+
+        {/* Résumé */}
+        <div className="bg-white rounded-2xl shadow p-4 h-fit">
+          <div className="space-y-2 border-b pb-3">
+           
+            <div className="flex justify-between text-lg font-bold text-[#6071e5]">
+               <span className="text-gray-600">Total H.T</span>
+              <span className="font-semibold">{dataOfOrders?.data?.length > 0
+  ? dataOfOrders.data
+      .reduce((sum, o) => sum + Number(o.prix_total || 0), 0)
+      .toFixed(2)
+  : '0.00'}  Dhs</span>
+            </div>
+          </div>
+          <div className="mt-4 flex flex-col gap-3">
+           
+           <button
+           title={
+  
+    isPanierEmpty
+    ? "Votre panier est vide"
+    : ""
+}
+
+
+  disabled={isDisabledActions}
+  onClick={() => { const total = dataOfOrders.data.reduce( (sum, o) => sum + parseFloat(o.prix_total || 0), 0 ).toFixed(2); handleValidation(Number(total)); }}
+  className={`w-full py-2 rounded-lg font-semibold
+    ${ isDisabledActions
+      ? "bg-gray-300 cursor-not-allowed"
+      : "bg-[#006294] hover:bg-[#C09200] text-white"
+    }`}
+>
+  {loadingValidate ? (
+    <div className="flex justify-center">
+      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white border-b-2" />
+    </div>
+  ) : (
+    "Valider mon panier"
+  )}
+</button>
+
+  <button
+  
+
+  onClick={handleSuivre}
+  className={`w-full py-2 rounded-lg
+   
+       bg-[#006294] hover:bg-[#C09200] text-white
+    `}
+>
+  {loadingSuivre ? (
+    <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-white border-b-2 mx-auto" />
+  ) : (
+    "Poursuivre mes achats"
+  )}
+ 
+</button>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
