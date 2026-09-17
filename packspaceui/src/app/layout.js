@@ -3,7 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "./components/AuthProvider";
 import localFont from 'next/font/local';
 import { Toaster } from "react-hot-toast";
-
+export const dynamic = 'force-dynamic';
 const inter = localFont({
   src: [
     { path: './fonts/Inter-Thin.otf', weight: '100', style: 'normal' },
