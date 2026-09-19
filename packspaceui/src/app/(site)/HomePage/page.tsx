@@ -18,3 +18,4 @@ export default async function FullPage() {
   const productsData = await resProducts.json()
   return <Home categories={categories} products={productsData} />
 }
+
