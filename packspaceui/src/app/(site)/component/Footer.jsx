@@ -9,7 +9,7 @@ export default function Footer() {
       <section
         id="newsletter"
         className="bg-[#FFFFFF] border-t border-[#006294] py-12"
-page-content
+
       >
         <div className="container mx-auto px-4 flex flex-col md:flex-row items-center">
           <div className="md:w-1/3 mb-6 md:mb-0 flex justify-center md:justify-start">
