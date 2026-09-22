@@ -2,7 +2,7 @@
 
 Packspace is a full-stack e-commerce platform for discovering, configuring, and ordering packaging and print products. It combines a customer-facing storefront with a protected administration dashboard for managing the catalogue, orders, content, and customers.
 ## Available project
-- web site [packspace-fin-eight.vercel.app](https://packspace-fin-eight.vercel.app/)
+- website:[packspace-fin-eight.vercel.app](https://packspace-fin-eight.vercel.app/)
 ## Highlights
 
 - Browse products by category, view product details, options, and images
