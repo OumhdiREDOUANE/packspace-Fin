@@ -17,7 +17,7 @@ export default async function  RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-   const cookieStore = cookies();
+   const cookieStore = await cookies();
   const token = cookieStore.get("token")?.value;
 
   // إذا ما كاينش token، إعادة التوجيه مباشرة إلى login

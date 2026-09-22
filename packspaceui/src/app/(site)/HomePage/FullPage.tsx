@@ -13,19 +13,45 @@ export default function Home({ categories, products }: HomeProps) {
 
   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/setting`)
-        if (!res.ok) throw new Error("Erreur lors du chargement des paramètres")
-        const data = await res.json()
-        setUrl_image_hero(data.url_image_hero || null)
-      } catch (err) {
-        console.error(err)
+ useEffect(() => {
+  const fetchSettings = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/setting`);
+
+      if (!res.ok) {
+        throw new Error("Erreur settings");
       }
+
+      const data = await res.json();
+
+      const imageUrl = data.url_image_hero;
+
+      if (!imageUrl) {
+        setUrl_image_hero(null);
+        return;
+      }
+
+      const img = new window.Image();
+
+      img.onload = () => {
+        setUrl_image_hero(imageUrl);
+      };
+
+      img.onerror = () => {
+        console.error("Hero image not found:", imageUrl);
+        setUrl_image_hero(null);
+      };
+
+      img.src = imageUrl;
+
+    } catch (err) {
+      console.error(err);
+      setUrl_image_hero(null);
     }
-    fetchSettings()
-  }, [API_BASE_URL])
+  };
+
+  fetchSettings();
+}, []);
 
   return (
     <>
